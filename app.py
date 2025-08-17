@@ -186,19 +186,19 @@ st.markdown("**Ask me anything about fantasy football strategy, player analysis,
 with st.expander("💡 Click here for sample questions you can ask"):
     st.markdown("""
     **Strategy Questions:**
-    - "What's the difference between SMASH, LEVERAGE, and CHALK plays?"
-    - "Should I use contrarian strategy in cash games or tournaments?"
-    - "How do I build a winning DFS lineup?"
+    - What's the difference between SMASH, LEVERAGE, and CHALK plays?
+    - Should I use contrarian strategy in cash games or tournaments?
+    - How do I build a winning DFS lineup?
     
     **Player Analysis:**
-    - "Who are the best contrarian plays this week?"
-    - "Should I play Josh Allen or Lamar Jackson?"
-    - "Which players have elite rankings but low ownership?"
+    - Who are the best contrarian plays this week?
+    - Should I play Josh Allen or Lamar Jackson?
+    - Which players have elite rankings but low ownership?
     
     **Advanced Questions:**
-    - "How does weather affect player performance?"
-    - "What's the best QB/WR stacking strategy?"
-    - "How do I identify leverage plays in tournaments?"
+    - How does weather affect player performance?
+    - What's the best QB/WR stacking strategy?
+    - How do I identify leverage plays in tournaments?
     """)
 
 # Chat interface with unique key
