@@ -471,8 +471,8 @@ with st.expander("💡 Click here for sample questions you can ask"):
     - "Which teams have the best stacking opportunities?"
     """)
 
-# Chat interface
-user_question = st.text_input("💬 Ask your question here:", placeholder="e.g., Who are the best contrarian plays this week?")
+# Chat interface with unique key
+user_question = st.text_input("💬 Ask your question here:", placeholder="e.g., Who are the best contrarian plays this week?", key="main_ai_chat")
 
 if user_question:
     # Enhanced AI responses
@@ -852,22 +852,23 @@ with col5:
     """, unsafe_allow_html=True)
 
 # =====================================
-# SIDEBAR NAVIGATION
+# SIDEBAR NAVIGATION (MOVED AFTER AI CHAT)
 # =====================================
 
 st.sidebar.markdown("## 🎯 Navigation")
 
 # User personalization in sidebar
 st.sidebar.markdown("### ⚙️ Settings")
-risk_tolerance = st.sidebar.selectbox("Risk Tolerance", ["Conservative", "Balanced", "Aggressive"])
-favorite_teams = st.sidebar.multiselect("Favorite Teams", ["BUF", "KC", "BAL", "SF", "PHI", "DAL", "GB", "NE"])
-salary_cap = st.sidebar.number_input("Salary Cap", min_value=35000, max_value=60000, value=50000, step=500)
+risk_tolerance = st.sidebar.selectbox("Risk Tolerance", ["Conservative", "Balanced", "Aggressive"], key="risk_tolerance_sidebar")
+favorite_teams = st.sidebar.multiselect("Favorite Teams", ["BUF", "KC", "BAL", "SF", "PHI", "DAL", "GB", "NE"], key="favorite_teams_sidebar")
+salary_cap = st.sidebar.number_input("Salary Cap", min_value=35000, max_value=60000, value=50000, step=500, key="salary_cap_sidebar")
 
 st.sidebar.markdown("---")
 
 page = st.sidebar.radio(
     "Choose Your Analysis:",
-    ["🔥 Contrarian Opportunities", "📊 Player Deep Dive", "🏈 Advanced Lineup Optimizer", "📈 Performance Tracking", "🎯 Tournament Tools", "📋 Historical Analysis", "🌡️ Weather & News"]
+    ["🔥 Contrarian Opportunities", "📊 Player Deep Dive", "🏈 Advanced Lineup Optimizer", "📈 Performance Tracking", "🎯 Tournament Tools", "📋 Historical Analysis", "🌡️ Weather & News"],
+    key="main_navigation_radio"
 )
 
 # =====================================
@@ -895,13 +896,13 @@ if page == "🔥 Contrarian Opportunities":
     # Enhanced filters
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        position_filter = st.selectbox("📍 Position", ["All", "QB", "RB", "WR", "TE"])
+        position_filter = st.selectbox("📍 Position", ["All", "QB", "RB", "WR", "TE"], key="pos_filter_contrarian")
     with col2:
-        play_type_filter = st.selectbox("🎯 Play Type", ["All", "SMASH_PLAY", "LEVERAGE_PLAY", "CHALK_PLAY", "NEUTRAL"])
+        play_type_filter = st.selectbox("🎯 Play Type", ["All", "SMASH_PLAY", "LEVERAGE_PLAY", "CHALK_PLAY", "NEUTRAL"], key="play_type_filter_contrarian")
     with col3:
-        ownership_filter = st.slider("📊 Max Ownership %", 0, 50, 50)
+        ownership_filter = st.slider("📊 Max Ownership %", 0, 50, 50, key="ownership_filter_contrarian")
     with col4:
-        injury_filter = st.selectbox("🏥 Health Status", ["All", "Show All Players"])  # Simplified since we may not have injury data
+        injury_filter = st.selectbox("🏥 Health Status", ["All", "Show All Players"], key="injury_filter_contrarian")  # Simplified since we may not have injury data
     
     # Apply filters
     filtered_df = df.copy()
@@ -977,9 +978,9 @@ elif page == "📊 Player Deep Dive":
     # Enhanced player selector with team grouping
     col1, col2 = st.columns(2)
     with col1:
-        selected_player = st.selectbox("Choose a player:", df['player_name'].tolist())
+        selected_player = st.selectbox("Choose a player:", df['player_name'].tolist(), key="player_selector_deepdive")
     with col2:
-        compare_player = st.selectbox("Compare with:", ["None"] + df['player_name'].tolist())
+        compare_player = st.selectbox("Compare with:", ["None"] + df['player_name'].tolist(), key="compare_player_selector")
     
     player_data = df[df['player_name'] == selected_player].iloc[0]
     
@@ -1104,24 +1105,24 @@ elif page == "🏈 Advanced Lineup Optimizer":
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        strategy = st.selectbox("Strategy", ["Tournament (GPP)", "Cash Game", "Ultra Contrarian"])
+        strategy = st.selectbox("Strategy", ["Tournament (GPP)", "Cash Game", "Ultra Contrarian"], key="strategy_selector_lineup")
     with col2:
-        enable_stacking = st.checkbox("Enable QB/WR Stacking", value=True)
+        enable_stacking = st.checkbox("Enable QB/WR Stacking", value=True, key="stacking_checkbox")
     with col3:
-        num_lineups = st.slider("Number of Lineups", 1, 5, 1)
+        num_lineups = st.slider("Number of Lineups", 1, 5, 1, key="num_lineups_slider")
     with col4:
-        custom_salary_cap = st.number_input("Salary Cap", min_value=35000, max_value=60000, value=salary_cap)
+        custom_salary_cap = st.number_input("Salary Cap", min_value=35000, max_value=60000, value=salary_cap, key="salary_cap_input")
     
     # Additional constraints
     st.markdown("### 🎛️ Advanced Constraints")
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        must_include = st.multiselect("Must Include Players", df['player_name'].tolist())
+        must_include = st.multiselect("Must Include Players", df['player_name'].tolist(), key="must_include_players")
     with col2:
-        exclude_players = st.multiselect("Exclude Players", df['player_name'].tolist())
+        exclude_players = st.multiselect("Exclude Players", df['player_name'].tolist(), key="exclude_players_list")
     with col3:
-        max_ownership = st.slider("Max Total Lineup Ownership %", 50, 200, 150)
+        max_ownership = st.slider("Max Total Lineup Ownership %", 50, 200, 150, key="max_ownership_slider")
     
     if st.button("🚀 Generate Optimal Lineups", type="primary"):
         strategy_map = {
@@ -1336,7 +1337,8 @@ elif page == "🎯 Tournament Tools":
     
     # Tournament strategy selector
     tournament_type = st.selectbox("Tournament Type", 
-                                  ["Large Field GPP (10K+ entries)", "Mid-Field Tournament (1K-10K)", "Small Field (Under 1K)", "Single Entry Max"])
+                                  ["Large Field GPP (10K+ entries)", "Mid-Field Tournament (1K-10K)", "Small Field (Under 1K)", "Single Entry Max"],
+                                  key="tournament_type_selector")
     
     # Adjust recommendations based on tournament type
     if tournament_type == "Large Field GPP (10K+ entries)":
@@ -1437,7 +1439,7 @@ elif page == "📋 Historical Analysis":
     st.markdown("---")
     
     # Time period selector
-    analysis_period = st.selectbox("Analysis Period", ["This Season", "Last 4 Weeks", "All Time"])
+    analysis_period = st.selectbox("Analysis Period", ["This Season", "Last 4 Weeks", "All Time"], key="analysis_period_selector")
     
     # Historical trends
     col1, col2 = st.columns(2)
