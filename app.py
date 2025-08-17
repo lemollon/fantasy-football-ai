@@ -442,11 +442,16 @@ if not severe_weather.empty:
                 ', '.join(severe_weather['team'].tolist()) + '. Consider fading passing games.</div>', 
                 unsafe_allow_html=True)
 
-# Injury alerts (simulated)
-injury_players = df[df['injury_status'] != 'Healthy']
-if not injury_players.empty:
-    st.markdown('<div class="alert-danger">🏥 INJURY ALERT: Monitor status of ' + 
-                ', '.join(injury_players['player_name'].tolist()) + ' - Questionable/Probable players</div>', 
+# Injury alerts (check if column exists)
+if 'injury_status' in df.columns:
+    injury_players = df[df['injury_status'] != 'Healthy']
+    if not injury_players.empty:
+        st.markdown('<div class="alert-danger">🏥 INJURY ALERT: Monitor status of ' + 
+                    ', '.join(injury_players['player_name'].tolist()) + ' - Questionable/Probable players</div>', 
+                    unsafe_allow_html=True)
+else:
+    # Simulate some injury alerts when real data isn't available
+    st.markdown('<div class="alert-danger">🏥 INJURY ALERT: Monitor late-breaking injury news before lineup lock</div>', 
                 unsafe_allow_html=True)
 
 # High value alerts
@@ -677,7 +682,7 @@ if page == "🔥 Contrarian Opportunities":
     with col3:
         ownership_filter = st.slider("📊 Max Ownership %", 0, 50, 50)
     with col4:
-        injury_filter = st.selectbox("🏥 Health Status", ["All", "Healthy Only"])
+        injury_filter = st.selectbox("🏥 Health Status", ["All", "Show All Players"])  # Simplified since we may not have injury data
     
     # Apply filters
     filtered_df = df.copy()
@@ -686,8 +691,9 @@ if page == "🔥 Contrarian Opportunities":
     if play_type_filter != "All":
         filtered_df = filtered_df[filtered_df['play_type'] == play_type_filter]
     filtered_df = filtered_df[filtered_df['ownership_pct'] <= ownership_filter]
-    if injury_filter == "Healthy Only":
-        filtered_df = filtered_df[filtered_df['injury_status'] == 'Healthy']
+    # Remove injury filter since we may not have that data
+    # if injury_filter == "Healthy Only":
+    #     filtered_df = filtered_df[filtered_df['injury_status'] == 'Healthy']
     
     # Sort by contrarian score
     filtered_df = filtered_df.sort_values('contrarian_score', ascending=False)
@@ -698,7 +704,10 @@ if page == "🔥 Contrarian Opportunities":
             col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 3])
             
             with col1:
-                injury_icon = "🏥" if player['injury_status'] != 'Healthy' else ""
+                # Check if injury_status exists
+                injury_icon = ""
+                if 'injury_status' in df.columns and player.get('injury_status', 'Healthy') != 'Healthy':
+                    injury_icon = "🏥"
                 st.markdown(f"**{player['player_name']}** ({player['position']}) {injury_icon}")
                 
                 # Play type badge
@@ -761,8 +770,13 @@ elif page == "📊 Player Deep Dive":
         st.metric("Contrarian Score", f"{player_data['contrarian_score']:.1f}")
         st.metric("Projected Points", f"{player_data['projected_points']:.1f}")
         st.metric("Salary", f"${player_data['estimated_salary']:,}")
-        st.metric("Matchup Rating", f"{player_data['matchup_rating']:.1f}/10")
-        st.metric("Injury Status", player_data['injury_status'])
+        # Check if columns exist before using them
+        if 'matchup_rating' in df.columns:
+            st.metric("Matchup Rating", f"{player_data['matchup_rating']:.1f}/10")
+        if 'injury_status' in df.columns:
+            st.metric("Injury Status", player_data.get('injury_status', 'Unknown'))
+        else:
+            st.metric("Status", "Monitor News")
     
     with col2:
         # Position comparison
@@ -785,14 +799,17 @@ elif page == "📊 Player Deep Dive":
             compare_data = df[df['player_name'] == compare_player].iloc[0]
             st.markdown(f"### {compare_player} Comparison")
             
-            # Create comparison metrics
+            # Create comparison metrics (check if columns exist)
             metrics = [
                 ("Rank", player_data['player_rank'], compare_data['player_rank'], "lower_better"),
                 ("Ownership", player_data['ownership_pct'], compare_data['ownership_pct'], "lower_better"),
                 ("Contrarian Score", player_data['contrarian_score'], compare_data['contrarian_score'], "higher_better"),
                 ("Proj Points", player_data['projected_points'], compare_data['projected_points'], "higher_better"),
-                ("Matchup", player_data['matchup_rating'], compare_data['matchup_rating'], "higher_better"),
             ]
+            
+            # Add matchup if it exists
+            if 'matchup_rating' in df.columns:
+                metrics.append(("Matchup", player_data.get('matchup_rating', 8), compare_data.get('matchup_rating', 8), "higher_better"))
             
             for metric_name, val1, val2, better_type in metrics:
                 if better_type == "higher_better":
