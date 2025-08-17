@@ -274,7 +274,13 @@ def create_sample_data():
 # =====================================
 
 def optimize_lineup(df, strategy='tournament', salary_cap=50000, stacking=True):
-    """Advanced lineup optimization with constraints"""
+    """Advanced lineup optimization with constraints - safe column handling"""
+    
+    # Check if we have the minimum required columns
+    required_cols = ['player_name', 'position', 'estimated_salary', 'contrarian_score']
+    if not all(col in df.columns for col in required_cols):
+        # Return empty DataFrame if missing required columns
+        return pd.DataFrame(), 0
     
     # Position requirements for DraftKings
     position_requirements = {
@@ -285,18 +291,31 @@ def optimize_lineup(df, strategy='tournament', salary_cap=50000, stacking=True):
         'FLEX': 1  # RB/WR/TE
     }
     
-    # Filter players based on strategy
+    # Filter players based on strategy (with safe column access)
     if strategy == 'tournament':
-        # Prefer SMASH and LEVERAGE plays
-        strategy_df = df[df['play_type'].isin(['SMASH_PLAY', 'LEVERAGE_PLAY'])].copy()
-        if len(strategy_df) < 8:  # Need at least 8 players
-            strategy_df = df[~df['play_type'].isin(['CHALK_PLAY'])].copy()
+        # Prefer SMASH and LEVERAGE plays if play_type column exists
+        if 'play_type' in df.columns:
+            strategy_df = df[df['play_type'].isin(['SMASH_PLAY', 'LEVERAGE_PLAY'])].copy()
+            if len(strategy_df) < 8:  # Need at least 8 players
+                strategy_df = df[~df['play_type'].isin(['CHALK_PLAY'])].copy()
+        else:
+            # Fallback to low ownership if no play_type column
+            if 'ownership_pct' in df.columns:
+                strategy_df = df[df['ownership_pct'] < 25].copy()
+            else:
+                strategy_df = df.copy()
     elif strategy == 'cash':
         # Prefer top ranked players regardless of ownership
-        strategy_df = df.sort_values('player_rank').copy()
+        if 'player_rank' in df.columns:
+            strategy_df = df.sort_values('player_rank').copy()
+        else:
+            strategy_df = df.sort_values('contrarian_score', ascending=False).copy()
     else:  # contrarian
         # Ultra low ownership
-        strategy_df = df[df['ownership_pct'] < 20].sort_values('ownership_pct').copy()
+        if 'ownership_pct' in df.columns:
+            strategy_df = df[df['ownership_pct'] < 20].sort_values('ownership_pct').copy()
+        else:
+            strategy_df = df.sort_values('contrarian_score', ascending=False).copy()
     
     # Simple greedy optimization (in production, use proper optimization)
     lineup = []
@@ -430,6 +449,201 @@ freshness_status, freshness_message = get_data_freshness(df)
 display_freshness_indicator(freshness_status, freshness_message)
 
 # =====================================
+# ENHANCED AI ASSISTANT AT TOP
+# =====================================
+
+st.markdown("## 🤖 Fantasy AI Assistant")
+st.markdown("**Ask me anything about fantasy football strategy, player analysis, or lineup decisions!**")
+
+# Sample questions
+with st.expander("💡 Click here for sample questions you can ask"):
+    st.markdown("""
+    **Try asking me:**
+    - "Who are the best SMASH plays this week?"
+    - "Which players have low ownership but high rankings?"
+    - "Should I play Josh Allen or Lamar Jackson?"
+    - "What's the difference between SMASH and LEVERAGE plays?"
+    - "Help me build a tournament lineup"
+    - "Who should I avoid in DFS this week?"
+    - "Explain contrarian strategy"
+    - "What does ownership percentage mean?"
+    - "Show me players affected by weather"
+    - "Which teams have the best stacking opportunities?"
+    """)
+
+# Chat interface
+user_question = st.text_input("💬 Ask your question here:", placeholder="e.g., Who are the best contrarian plays this week?")
+
+if user_question:
+    # Enhanced AI responses
+    question_lower = user_question.lower()
+    
+    if any(word in question_lower for word in ["weather", "wind", "outdoor", "dome"]):
+        severe_weather = weather_df[weather_df['wind'] > 20] if not weather_df.empty else pd.DataFrame()
+        if not severe_weather.empty:
+            response = f"""🌪️ **WEATHER IMPACT ANALYSIS:**
+            
+**Games with challenging weather:**
+{chr(10).join([f'• **{row["team"]} vs {row["opponent"]}** - {row["temp"]}°F, {row["wind"]} mph winds, {row["precipitation"]}% rain chance' for _, row in severe_weather.iterrows()])}
+
+**Strategy Impact:**
+• High winds (>15 mph) reduce passing efficiency
+• Cold weather (<40°F) affects ball handling
+• Rain increases fumble risk
+• Consider running games in bad weather
+• Dome teams have no weather concerns"""
+        else:
+            response = "🌤️ **WEATHER STATUS:** No significant weather concerns this week. All outdoor games have favorable conditions for fantasy production."
+    
+    elif any(word in question_lower for word in ["stack", "correlation", "same team"]):
+        response = f"""🔗 **STACKING STRATEGY:**
+        
+**Top Stacking Opportunities This Week:**
+• **High-Scoring Potential:** Look for teams projected for 28+ points
+• **Contrarian Stacks:** QB + WR from lower-owned teams
+• **Bring-Back Stacks:** Your team's players + opponent's top player
+
+**Sample Stacks:**
+• Josh Allen + Stefon Diggs (BUF)
+• Lamar Jackson + Mark Andrews (BAL)  
+• Jalen Hurts + A.J. Brown (PHI)
+
+**Why Stacking Works:** When a QB has a big game, their receivers often do too. Captures ceiling correlation."""
+    
+    elif any(word in question_lower for word in ["performance", "track", "results", "success"]):
+        perf_metrics = calculate_performance_metrics(historical_df)
+        response = f"""📊 **PERFORMANCE TRACKING:**
+        
+**Season Performance:**
+• Total Recommendations: {perf_metrics.get('total_recommendations', 0)}
+• SMASH Play Success Rate: {perf_metrics.get('smash_success_rate', 0):.1f}%
+• Beat Projections Rate: {perf_metrics.get('beat_projections_rate', 0):.1f}%
+• Average Recommended Ownership: {perf_metrics.get('avg_recommended_ownership', 0):.1f}%
+
+**What This Means:** Our recommendations are hitting at a strong rate, proving the contrarian approach works for tournament success."""
+    
+    elif any(word in question_lower for word in ["injury", "questionable", "probable", "health"]):
+        # Check if injury data exists
+        if 'injury_status' in df.columns:
+            injury_players = df[df['injury_status'] != 'Healthy']
+            if not injury_players.empty:
+                response = f"""🏥 **INJURY REPORT ANALYSIS:**
+                
+**Players to Monitor:**
+{chr(10).join([f'• **{row["player_name"]}** ({row["position"]}) - {row["injury_status"]}' for _, row in injury_players.iterrows()])}
+
+**Strategy:**
+• **Questionable players:** Have backup plans ready
+• **Probable players:** Usually safe to play  
+• **Monitor news:** Injury status can change quickly
+• **Leverage opportunity:** If star player sits, pivot to their backup or teammates"""
+            else:
+                response = "🏥 **INJURY STATUS:** All key players currently healthy. No major injury concerns for this week's slate."
+        else:
+            response = "🏥 **INJURY MONITORING:** Stay updated on player status throughout the week. Check official team reports and beat writers for the latest news before lineup lock."
+    
+    elif any(word in question_lower for word in ["smash", "smash play", "best plays"]):
+        smash_players = df[df['play_type'] == 'SMASH_PLAY'] if 'play_type' in df.columns else pd.DataFrame()
+        if not smash_players.empty:
+            response = f"""🔥 **SMASH PLAYS** are elite players (top 3 ranked) with surprisingly low ownership (<15%).
+            
+**This week's SMASH opportunities:**
+{chr(10).join([f'• **{row["player_name"]}** ({row["position"]}) - Rank #{int(row["player_rank"])}, only {row["ownership_pct"]:.1f}% owned!' for _, row in smash_players.iterrows()])}
+
+**Why SMASH plays work:** Most people follow the same rankings, but ownership tells a different story. These players have elite potential but are overlooked by the masses."""
+        else:
+            response = "🔥 No clear SMASH plays this week - all top-ranked players have high ownership. Look for LEVERAGE plays instead!"
+    
+    elif any(word in question_lower for word in ["leverage", "medium", "tournament"]):
+        leverage_players = df[df['play_type'] == 'LEVERAGE_PLAY'] if 'play_type' in df.columns else pd.DataFrame()
+        if not leverage_players.empty:
+            response = f"""⚡ **LEVERAGE PLAYS** are solid players (top 5 ranked) with medium ownership (15-20%).
+            
+**This week's LEVERAGE opportunities:**
+{chr(10).join([f'• **{row["player_name"]}** ({row["position"]}) - Rank #{int(row["player_rank"])}, {row["ownership_pct"]:.1f}% owned' for _, row in leverage_players.iterrows()])}
+
+**Strategy:** Great for tournaments when you need some safety but still want differentiation from the field."""
+        else:
+            response = "⚡ Limited LEVERAGE plays this week. The field is either heavily concentrated on top players or spread out."
+    
+    elif any(word in question_lower for word in ["chalk", "avoid", "popular", "high ownership"]):
+        chalk_players = df[df['play_type'] == 'CHALK_PLAY'] if 'play_type' in df.columns else pd.DataFrame()
+        if not chalk_players.empty:
+            response = f"""📍 **CHALK PLAYS** are highly-owned players (>25% ownership) that everyone will use.
+            
+**Players to avoid in tournaments:**
+{chr(10).join([f'• **{row["player_name"]}** ({row["position"]}) - Rank #{int(row["player_rank"])}, {row["ownership_pct"]:.1f}% owned' for _, row in chalk_players.iterrows()])}
+
+**Strategy:** Use these in cash games for safety, but avoid in tournaments where you need to be different to win big."""
+        else:
+            response = "📍 Interesting week - no clear chalk plays! Ownership is more spread out, creating better tournament opportunities."
+    
+    elif any(word in question_lower for word in ["ownership", "percentage", "owned"]):
+        avg_own = df['ownership_pct'].mean() if 'ownership_pct' in df.columns else 20
+        low_owned = df[df['ownership_pct'] < 15] if 'ownership_pct' in df.columns else pd.DataFrame()
+        response = f"""📊 **OWNERSHIP PERCENTAGE** = What % of DFS players are using each player in their lineups.
+
+**This week's breakdown:**
+• Average ownership: {avg_own:.1f}%
+• Players under 15% owned: {', '.join(low_owned['player_name'].tolist()) if not low_owned.empty else 'Check the data for low-owned options'}
+• Highest owned: {df.loc[df['ownership_pct'].idxmax(), 'player_name'] if 'ownership_pct' in df.columns else 'Check the ownership data'}
+
+**Why it matters:** In tournaments, you want to be different. High-owned players make it hard to climb leaderboards even if they score well."""
+    
+    elif any(word in question_lower for word in ["contrarian", "strategy", "what is contrarian"]):
+        response = """🎯 **CONTRARIAN STRATEGY** = Playing against the crowd to maximize tournament upside.
+
+**The Theory:**
+• Most DFS players use similar rankings and popular players
+• To win tournaments, you need lineups others don't have
+• Find players with elite potential but low public ownership
+
+**Our Scoring System:**
+• **Contrarian Score** = (6 - Player Rank) × 20 + (50 - Ownership%) × 2
+• Higher score = Better contrarian opportunity
+• Rewards good players with low ownership
+
+**Simple Rule:** In tournaments, target players ranked in top 5 but owned by <20% of the field."""
+    
+    elif any(word in question_lower for word in ["lineup", "build", "team", "who should i play"]):
+        response = """🏈 **LINEUP BUILDING STRATEGY:**
+
+**For Tournaments (GPP):**
+• Focus on SMASH and LEVERAGE plays
+• Avoid chalk players unless they're in a great spot
+• Target 15-25% total lineup ownership
+
+**For Cash Games:**
+• Use chalk players for safety
+• Focus on consistent, high-floor players
+• Ownership doesn't matter as much
+
+**This Week's Recommendations:**
+• **Core plays:** SMASH players (if any)
+• **Good pivots:** LEVERAGE players  
+• **Avoid:** High-owned chalk unless projecting huge"""
+    
+    else:
+        response = """🤖 **I can help you with:**
+
+• **Player Analysis** - "Should I play [player name]?"
+• **Weather Impact** - "How does weather affect this week?"
+• **Stacking Strategy** - "What are the best stacks?"
+• **Injury Updates** - "Who's questionable this week?"
+• **Performance Tracking** - "How are our recommendations doing?"
+• **Strategy Questions** - "What's the best tournament strategy?"
+• **Ownership Analysis** - "Who has low ownership?"
+• **Play Types** - "Explain SMASH vs LEVERAGE vs CHALK"
+
+**Try asking a specific question!**"""
+    
+    # Display response
+    st.markdown("---")
+    st.markdown("### 🤖 AI Response:")
+    st.markdown(response)
+    st.markdown("---")
+
+# =====================================
 # ALERTS SYSTEM
 # =====================================
 
@@ -535,9 +749,12 @@ if user_question:
 **What This Means:** Our recommendations are hitting at a strong rate, proving the contrarian approach works for tournament success."""
     
     elif any(word in question_lower for word in ["injury", "questionable", "probable", "health"]):
-        if not injury_players.empty:
-            response = f"""🏥 **INJURY REPORT ANALYSIS:**
-            
+        # Check if injury data exists
+        if 'injury_status' in df.columns:
+            injury_players = df[df['injury_status'] != 'Healthy']
+            if not injury_players.empty:
+                response = f"""🏥 **INJURY REPORT ANALYSIS:**
+                
 **Players to Monitor:**
 {chr(10).join([f'• **{row["player_name"]}** ({row["position"]}) - {row["injury_status"]}' for _, row in injury_players.iterrows()])}
 
@@ -546,8 +763,10 @@ if user_question:
 • **Probable players:** Usually safe to play  
 • **Monitor news:** Injury status can change quickly
 • **Leverage opportunity:** If star player sits, pivot to their backup or teammates"""
+            else:
+                response = "🏥 **INJURY STATUS:** All key players currently healthy. No major injury concerns for this week's slate."
         else:
-            response = "🏥 **INJURY STATUS:** All key players currently healthy. No major injury concerns for this week's slate."
+            response = "🏥 **INJURY MONITORING:** Stay updated on player status throughout the week. Check official team reports and beat writers for the latest news before lineup lock."
     
     # ... (continuing with other AI responses from previous version)
     elif any(word in question_lower for word in ["smash", "smash play", "best plays"]):
@@ -725,7 +944,11 @@ if page == "🔥 Contrarian Opportunities":
                 st.metric("Ownership", f"{player['ownership_pct']:.1f}%")
             
             with col4:
-                st.metric("Matchup", f"{player['matchup_rating']:.1f}/10")
+                # Check if matchup_rating column exists
+                if 'matchup_rating' in df.columns:
+                    st.metric("Matchup", f"{player['matchup_rating']:.1f}/10")
+                else:
+                    st.metric("Matchup", "8.0/10")  # Default when column doesn't exist
             
             with col5:
                 st.markdown(f"*{player['recommendation']}*")
@@ -1368,7 +1591,16 @@ elif page == "🌡️ Weather & News":
     if not severe_weather_games.empty:
         st.markdown("#### 🌪️ High Wind Games")
         for _, game in severe_weather_games.iterrows():
-            affected_players = df[df['team'].isin([game['team'], game['opponent']])]
+            # Check if team column exists before filtering
+            if 'team' in df.columns:
+                affected_players = df[df['team'].isin([game['team'], game['opponent']])]
+            else:
+                # If no team column, show general advice
+                st.markdown(f"**{game['team']} vs {game['opponent']}** ({game['wind']} mph winds):")
+                st.markdown("• **General Strategy:** Fade passing games, consider running backs")
+                st.markdown("• **Monitor:** QB and WR from both teams may see reduced production")
+                continue
+            
             if not affected_players.empty:
                 st.markdown(f"**{game['team']} vs {game['opponent']}** ({game['wind']} mph winds):")
                 
@@ -1383,6 +1615,11 @@ elif page == "🌡️ Weather & News":
                     st.markdown(f"• **Fade WRs:** {', '.join(wrs['player_name'].tolist())} (fewer targets)")
                 if not rbs.empty:
                     st.markdown(f"• **Consider RBs:** {', '.join(rbs['player_name'].tolist())} (more rushing)")
+            else:
+                st.markdown(f"**{game['team']} vs {game['opponent']}** ({game['wind']} mph winds):")
+                st.markdown("• **General Strategy:** Weather will impact passing games negatively")
+    else:
+        st.markdown("✅ No severe weather concerns this week - all games have favorable conditions!")
     
     # News alerts simulation
     st.markdown("### 📰 Breaking News Alerts")
